@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+    <remote name="github"
+        fetch="git://github.com/" />
+
+    <!-- CAF removals -->
+    <remove-project name="kernel/msm" />
+
+    <!-- CAF replacements -->
+    <remove-project name="quic/lf/b2g/build" />
+    <remove-project name="device/qcom/common" />
+    <remove-project name="platform/build" />
+    <remove-project name="platform/system/core" />
+    <project name="B2G-CAF/android_device_qcom_b2g_common" path="device/qcom/b2g_common" remote="github" revision="b2g_kk_3.5"/>
+    <project name="B2G-CAF/android_device_qcom_common" path="device/qcom/common" remote="github" revision="b2g_kk_3.5">
+        <copyfile dest="build.sh" src="build.sh"/>
+        <copyfile dest="vendor/qcom/build/tasks/generate_extra_images.mk" src="generate_extra_images.mk"/>
+    </project>
+    <project name="B2G-CAF/android_build" path="build" remote="github" revision="b2g_kk_3.5">
+        <copyfile dest="Makefile" src="core/root.mk"/>
+    </project>
+    <project name="B2G-CAF/android_system_core" path="system/core" remote="github" revision="b2g_kk_3.5"/>
+
+    <!-- B2G -->
+    <project name="mozilla-b2g/rilproxy" path="rilproxy" remote="github" revision="v2.0"/>
+
+    <!-- BusyBox -->
+    <project name="CyanogenMod/android_external_busybox" path="external/busybox" remote="github" revision="2955fd17ef950705005d1a69b59d192e728a1bb1" />
+
+</manifest>
