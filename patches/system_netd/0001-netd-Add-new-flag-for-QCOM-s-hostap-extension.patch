@@ -1,0 +1,29 @@
+From 7021ec5cca01955186239be101271f375e639eee Mon Sep 17 00:00:00 2001
+From: Steve Kondik <shade@chemlab.org>
+Date: Tue, 15 Oct 2013 10:11:06 -0700
+Subject: [PATCH] netd: Add new flag for QCOM's hostap extension
+
+ * Not everybody cares about this or needs it, so add a flag that can be
+   used to include it for devices that include the full stack.
+
+Change-Id: I66d217dec0553924e09592dd3162e930ecfe66fe
+---
+ Android.mk |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Android.mk b/Android.mk
+index 04f99a9..2fc0b9c 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -42,7 +42,7 @@ LOCAL_SHARED_LIBRARIES := libstlport libsysutils liblog libcutils libnetutils \
+                           libcrypto libhardware_legacy libmdnssd libdl \
+                           liblogwrap
+ 
+-ifeq ($(BOARD_HAS_QCOM_WLAN), true)
++ifeq ($(BOARD_HAS_QCOM_WLAN_SDK), true)
+   LOCAL_SRC_FILES += QsoftapCmd.cpp
+   LOCAL_CFLAGS += -DQSAP_WLAN
+   LOCAL_SHARED_LIBRARIES += libqsap_sdk
+-- 
+1.7.9.5
+
