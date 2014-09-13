@@ -17,6 +17,7 @@ Initialize repo:
 Compile:
 
     . build/envsetup.sh
+    . device/qcom/b2g_common/vendorsetup.sh force
     lunch kis3-userdebug
     make
 
@@ -28,5 +29,6 @@ Compile:
 Compile:
 
     . build/envsetup.sh
+    . device/qcom/b2g_common/vendorsetup.sh force
     lunch falcon-userdebug
     make
