@@ -1,0 +1,59 @@
+From e39d534bcf91455d49685a58807c6b00271b7899 Mon Sep 17 00:00:00 2001
+From: Steve Kondik <shade@chemlab.org>
+Date: Sun, 11 May 2014 04:01:05 -0700
+Subject: [PATCH] qsap: Put files in a sane location
+
+ * And set their perms
+
+Change-Id: Ifc61a3504433f6b7e1602432ecea70c37785c895
+---
+ softap/sdk/qsap_api.c |    5 +++++
+ softap/sdk/qsap_api.h |    6 +++---
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/softap/sdk/qsap_api.c b/softap/sdk/qsap_api.c
+index a6fdb2f..750136d 100644
+--- a/softap/sdk/qsap_api.c
++++ b/softap/sdk/qsap_api.c
+@@ -1947,6 +1947,11 @@ s16 wifi_qsap_reset_to_default(s8 *pcfgfile, s8 *pdefault)
+     if(eERR_UNKNOWN == rename(buf, pcfgfile))
+         status = eERR_CONF_FILE;
+ 
++    if (chown(pcfgfile, AID_WIFI, AID_WIFI) < 0) {
++        ALOGE("Error changing group ownership of %s to %d: %s",
++                pcfgfile, AID_WIFI, strerror(errno));
++    }
++
+     /** Remove the temporary file. Dont care the return value */
+     unlink(buf);
+ 
+diff --git a/softap/sdk/qsap_api.h b/softap/sdk/qsap_api.h
+index f3ea042..f0d2ee8 100644
+--- a/softap/sdk/qsap_api.h
++++ b/softap/sdk/qsap_api.h
+@@ -98,19 +98,19 @@ enum error_val {
+ #define DEFAULT_ACCEPT_LIST_FILE_PATH "/system/etc/hostapd/hostapd.accept"
+ 
+ /** Accept list file name */
+-#define ACCEPT_LIST_FILE "/data/hostapd/hostapd.accept"
++#define ACCEPT_LIST_FILE "/data/misc/wifi/hostapd.accept"
+ 
+ /** Default Deny list file name */
+ #define DEFAULT_DENY_LIST_FILE_PATH "/system/etc/hostapd/hostapd.deny"
+ 
+ /** Deny list file name */
+-#define DENY_LIST_FILE "/data/hostapd/hostapd.deny"
++#define DENY_LIST_FILE "/data/misc/wifi/hostapd.deny"
+ 
+ /** Default Ini file */
+ #define DEFAULT_INI_FILE "/persist/qcom/softap/qcom_cfg_default.ini"
+ 
+ /** SDK control interface path */
+-#define SDK_CTRL_IF "/data/hostapd/softap_sdk_ctrl"
++#define SDK_CTRL_IF "/data/misc/wifi/softap_sdk_ctrl"
+ 
+ /** Maximum length of the line in the configuration file */
+ #define MAX_CONF_LINE_LEN  (156)
+-- 
+1.7.9.5
+
