@@ -5,7 +5,7 @@ How to build:
 
 Initialize repo:
 
-    repo init -u git://codeaurora.org/quic/lf/manifest.git -b release -m LNX.LF.3.5.1-08100-8x26.0.xml
+    repo init -u git://codeaurora.org/quic/lf/manifest.git -b release -m LNX.LF.3.5.1-11900-8x10.0.xml
     curl --create-dirs -L -o .repo/local_manifests/local_manifest.xml -O -L https://raw.githubusercontent.com/B2G-CAF/android_local_manifest/b2g_kk_3.5/local_manifest.xml
     repo sync
 
