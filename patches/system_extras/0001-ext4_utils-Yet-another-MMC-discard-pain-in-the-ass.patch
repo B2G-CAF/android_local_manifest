@@ -1,0 +1,44 @@
+From 1caa2fe81b694210159b06c4a58b97301352b49c Mon Sep 17 00:00:00 2001
+From: Steve Kondik <shade@chemlab.org>
+Date: Sat, 16 Nov 2013 07:36:33 -0800
+Subject: [PATCH] ext4_utils: Yet another MMC discard pain in the ass
+
+ * Secure discard on this device is painfully slow. Use regular
+   discard until the issue is sorted out.
+
+Change-Id: Ib8ccb12829385aa267253f772e243bef8850f455
+---
+ ext4_utils/wipe.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/ext4_utils/wipe.c b/ext4_utils/wipe.c
+index 3bd33e5..c3d213f 100644
+--- a/ext4_utils/wipe.c
++++ b/ext4_utils/wipe.c
+@@ -35,10 +35,12 @@ int wipe_block_device(int fd, s64 len)
+ 	u64 range[2];
+ 	int ret;
+ 
++#ifndef NO_SECURE_DISCARD
+ 	range[0] = 0;
+ 	range[1] = len;
+ 	ret = ioctl(fd, BLKSECDISCARD, &range);
+ 	if (ret < 0) {
++#endif
+ 		range[0] = 0;
+ 		range[1] = len;
+ 		ret = ioctl(fd, BLKDISCARD, &range);
+@@ -49,8 +51,9 @@ int wipe_block_device(int fd, s64 len)
+ 			warn("Wipe via secure discard failed, used discard instead\n");
+ 			return 0;
+ 		}
++#ifndef NO_SECURE_DISCARD
+ 	}
+-
++#endif
+ 	return 0;
+ }
+ #else
+-- 
+1.7.9.5
+
