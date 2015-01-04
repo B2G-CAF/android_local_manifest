@@ -21,6 +21,17 @@
     </project>
     <project name="B2G-CAF/android_system_core" path="system/core" remote="github" revision="b2g_kk_3.5"/>
 
+    <!-- CAF additional locales -->
+    <project name="releases/l10n/ar/gaia" path="gaia-l10n/ar" remote="caf_lf" revision="mozilla/v2.0"/>
+    <project name="releases/l10n/fr/gaia" path="gaia-l10n/fr" remote="caf_lf" revision="mozilla/v2.0"/>
+    <project name="releases/l10n/nl/gaia" path="gaia-l10n/nl" remote="caf_lf" revision="mozilla/v2.0"/>
+    <project name="releases/l10n/nl/gecko" path="gecko-l10n/nl" remote="caf_lf" revision="mozilla/mozilla-beta"/>
+    <project name="releases/l10n/ru/gaia" path="gaia-l10n/ru" remote="caf_lf" revision="mozilla/v2.0"/>
+    <project name="releases/l10n/ru/gecko" path="gecko-l10n/ru" remote="caf_lf" revision="mozilla/mozilla-beta"/>
+    <project name="releases/l10n/tr/gaia" path="gaia-l10n/tr" remote="caf_lf" revision="mozilla/v2.0"/>
+    <project name="releases/l10n/tr/gecko" path="gecko-l10n/tr" remote="caf_lf" revision="mozilla/mozilla-beta"/>
+    <project name="releases/l10n/zh-TW/gaia" path="gaia-l10n/zh-TW" remote="caf_lf" revision="mozilla/v2.0"/>
+
     <!-- B2G -->
     <project name="mozilla-b2g/rilproxy" path="rilproxy" remote="github" revision="v2.0"/>
 
