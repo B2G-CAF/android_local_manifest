@@ -1,0 +1,58 @@
+From 099bbb25c7633d2eb952f0b578e717b08d21f91a Mon Sep 17 00:00:00 2001
+From: Steve Kondik <shade@chemlab.org>
+Date: Sat, 12 Apr 2014 05:38:21 -0700
+Subject: [PATCH 2/4] wcnss-service: Additional guard on QMI support
+
+Change-Id: I68ce99a2e9ffd3949c994176a8fb0987f92f3baa
+---
+ wcnss-service/Android.mk |   17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/wcnss-service/Android.mk b/wcnss-service/Android.mk
+index 18645fc..1042ac2 100644
+--- a/wcnss-service/Android.mk
++++ b/wcnss-service/Android.mk
+@@ -1,27 +1,36 @@
+ ifeq ($(TARGET_ARCH),arm)
++
+ LOCAL_PATH := $(call my-dir)
++
+ include $(CLEAR_VARS)
++
+ LOCAL_MODULE := wcnss_service
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/common/inc/
++
+ ifeq ($(TARGET_USES_WCNSS_CTRL),true)
+ LOCAL_SRC_FILES := wcnss_service.c
+ else
+ LOCAL_SRC_FILES := wcnss_service_old.c
+ endif
++
++LOCAL_SHARED_LIBRARIES := libc libcutils libutils liblog
++
+ ifeq ($(strip $(TARGET_USES_QCOM_WCNSS_QMI)),true)
++ifneq ($(QCPATH),)
+ LOCAL_CFLAGS += -DWCNSS_QMI
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/inc
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/services
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/platform
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/src
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/core/lib/inc
+-LOCAL_SRC_FILES += wcnss_qmi_client.c
+-endif #TARGET_USES_QCOM_WCNSS_QMI
+-LOCAL_SHARED_LIBRARIES := libc libcutils libutils liblog
+-ifeq ($(strip $(TARGET_USES_QCOM_WCNSS_QMI)),true)
+ LOCAL_SHARED_LIBRARIES += libqmiservices libqmi libqcci_legacy libqmi_client_qmux
++LOCAL_SRC_FILES += wcnss_qmi_client.c
++endif #QCPATH
+ endif #TARGET_USES_QCOM_WCNSS_QMI
++
+ LOCAL_MODULE_TAGS := optional
+ LOCAL_CFLAGS += -Wall
++
+ include $(BUILD_EXECUTABLE)
++
+ endif
+-- 
+1.7.9.5
+

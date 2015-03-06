@@ -1,0 +1,98 @@
+From fc69a700c56af697700d3a84bcfcb66607e7dabe Mon Sep 17 00:00:00 2001
+From: Konsta <konsta09@gmail.com>
+Date: Mon, 9 Feb 2015 21:00:01 +0200
+Subject: [PATCH] sensorservice: add option to disable batteryservice
+
+Motorola camera HACKs.
+
+SersorService shouldn't be running in B2G. If we have to manually
+start it, BatteryService doesn't know how to behave - disable it.
+
+Change-Id: I870a86082e96301a6e9df4e7201f52f690c4ad02
+---
+ services/sensorservice/Android.mk        |   10 +++++++++-
+ services/sensorservice/SensorService.cpp |    8 ++++++++
+ 2 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/services/sensorservice/Android.mk b/services/sensorservice/Android.mk
+index 4f24ddc..4046d37 100644
+--- a/services/sensorservice/Android.mk
++++ b/services/sensorservice/Android.mk
+@@ -2,7 +2,6 @@ LOCAL_PATH:= $(call my-dir)
+ include $(CLEAR_VARS)
+ 
+ LOCAL_SRC_FILES:= \
+-	BatteryService.cpp \
+ 	CorrectedGyroSensor.cpp \
+     Fusion.cpp \
+     GravitySensor.cpp \
+@@ -14,10 +13,19 @@ LOCAL_SRC_FILES:= \
+     SensorInterface.cpp \
+     SensorService.cpp
+ 
++ifneq ($(TARGET_CAMERA_USES_SENSORSERVICE_HACK),true)
++LOCAL_SRC_FILES += \
++    BatteryService.cpp
++endif
++
+ LOCAL_CFLAGS:= -DLOG_TAG=\"SensorService\"
+ 
+ LOCAL_CFLAGS += -fvisibility=hidden
+ 
++ifeq ($(TARGET_CAMERA_USES_SENSORSERVICE_HACK),true)
++LOCAL_CFLAGS += -DCAMERA_USES_SENSORSERVICE_HACK
++endif
++
+ LOCAL_SHARED_LIBRARIES := \
+ 	libcutils \
+ 	libhardware \
+diff --git a/services/sensorservice/SensorService.cpp b/services/sensorservice/SensorService.cpp
+index a2f4332..2aa0237 100644
+--- a/services/sensorservice/SensorService.cpp
++++ b/services/sensorservice/SensorService.cpp
+@@ -40,7 +40,9 @@
+ #include <hardware/sensors.h>
+ #include <hardware_legacy/power.h>
+ 
++#ifndef CAMERA_USES_SENSORSERVICE_HACK
+ #include "BatteryService.h"
++#endif
+ #include "CorrectedGyroSensor.h"
+ #include "GravitySensor.h"
+ #include "LinearAccelerationSensor.h"
+@@ -535,7 +537,9 @@ void SensorService::cleanupConnection(SensorEventConnection* c)
+         }
+     }
+     mActiveConnections.remove(connection);
++#ifndef CAMERA_USES_SENSORSERVICE_HACK
+     BatteryService::cleanup(c->getUid());
++#endif
+ }
+ 
+ status_t SensorService::enable(const sp<SensorEventConnection>& connection,
+@@ -573,7 +577,9 @@ status_t SensorService::enable(const sp<SensorEventConnection>& connection,
+     }
+ 
+     if (connection->addSensor(handle)) {
++#ifndef CAMERA_USES_SENSORSERVICE_HACK
+         BatteryService::enableSensor(connection->getUid(), handle);
++#endif
+         // the sensor was added (which means it wasn't already there)
+         // so, see if this connection becomes active
+         if (mActiveConnections.indexOf(connection) < 0) {
+@@ -641,10 +647,12 @@ status_t SensorService::cleanupWithoutDisableLocked(
+         const sp<SensorEventConnection>& connection, int handle) {
+     SensorRecord* rec = mActiveSensors.valueFor(handle);
+     if (rec) {
++#ifndef CAMERA_USES_SENSORSERVICE_HACK
+         // see if this connection becomes inactive
+         if (connection->removeSensor(handle)) {
+             BatteryService::disableSensor(connection->getUid(), handle);
+         }
++#endif
+         if (connection->hasAnySensor() == false) {
+             mActiveConnections.remove(connection);
+         }
+-- 
+1.7.9.5
+

@@ -1,7 +1,7 @@
-From 424b5794f2b13aa97e5b184459b5ad42522af707 Mon Sep 17 00:00:00 2001
+From f47a2833d30cf3d75ff064279e51ef2f334046af Mon Sep 17 00:00:00 2001
 From: dhacker29 <dhackerdvm@gmail.com>
 Date: Tue, 28 Jan 2014 08:44:01 -0600
-Subject: [PATCH] wcnss-service: Preseve old behavior as default
+Subject: [PATCH 1/4] wcnss-service: Preseve old behavior as default
 
 Set TARGET_USES_WCNSS_CTRL := true in Boardconfig to use
 the new /dev/wcnss_ctrl and ini in system/etc/wifi

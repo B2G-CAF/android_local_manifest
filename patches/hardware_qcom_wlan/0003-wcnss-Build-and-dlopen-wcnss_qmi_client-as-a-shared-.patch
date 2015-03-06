@@ -1,0 +1,199 @@
+From 70ceed1749f496d2ab88042029e2cdb43faf068b Mon Sep 17 00:00:00 2001
+From: Ethan Chen <intervigil@gmail.com>
+Date: Mon, 14 Apr 2014 15:52:41 -0700
+Subject: [PATCH 3/4] wcnss: Build and dlopen wcnss_qmi_client as a shared
+ library
+
+* Allows us to decouple QMI from wcnss_service for those devices that
+  rely on QMI features for wcnss.
+
+Change-Id: I30a1f9a8760dcd19761d473cedb2104b7b33069c
+---
+ wcnss-service/Android.mk      |   30 ++++++++++++--
+ wcnss-service/wcnss_service.c |   86 ++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 110 insertions(+), 6 deletions(-)
+
+diff --git a/wcnss-service/Android.mk b/wcnss-service/Android.mk
+index 1042ac2..3db116e 100644
+--- a/wcnss-service/Android.mk
++++ b/wcnss-service/Android.mk
+@@ -18,19 +18,41 @@ LOCAL_SHARED_LIBRARIES := libc libcutils libutils liblog
+ ifeq ($(strip $(TARGET_USES_QCOM_WCNSS_QMI)),true)
+ ifneq ($(QCPATH),)
+ LOCAL_CFLAGS += -DWCNSS_QMI
++LOCAL_SHARED_LIBRARIES += libwcnss_qmi
++else
++LOCAL_CFLAGS += -DWCNSS_QMI_OSS
++LOCAL_SHARED_LIBRARIES += libdl
++endif #QCPATH
++endif #TARGET_USES_QCOM_WCNSS_QMI
++
++LOCAL_MODULE_TAGS := optional
++LOCAL_CFLAGS += -Wall
++
++include $(BUILD_EXECUTABLE)
++
++ifeq ($(strip $(TARGET_USES_QCOM_WCNSS_QMI)),true)
++ifneq ($(QCPATH),)
++include $(CLEAR_VARS)
++
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/inc
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/services
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/platform
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/src
+ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qmi/core/lib/inc
++
++LOCAL_SHARED_LIBRARIES := libc libcutils libutils liblog
+ LOCAL_SHARED_LIBRARIES += libqmiservices libqmi libqcci_legacy libqmi_client_qmux
++
++LOCAL_CFLAGS += -DWCNSS_QMI
+ LOCAL_SRC_FILES += wcnss_qmi_client.c
+-endif #QCPATH
+-endif #TARGET_USES_QCOM_WCNSS_QMI
+ 
++LOCAL_MODULE := libwcnss_qmi
+ LOCAL_MODULE_TAGS := optional
+ LOCAL_CFLAGS += -Wall
+ 
+-include $(BUILD_EXECUTABLE)
++include $(BUILD_SHARED_LIBRARY)
+ 
+-endif
++endif #QCPATH
++endif #TARGET_USES_QCOM_WCNSS_QMI
++
++endif #TARGET_ARCH == arm
+diff --git a/wcnss-service/wcnss_service.c b/wcnss-service/wcnss_service.c
+index 214b8a5..f6af677 100644
+--- a/wcnss-service/wcnss_service.c
++++ b/wcnss-service/wcnss_service.c
+@@ -40,6 +40,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #ifdef WCNSS_QMI
+ #include "wcnss_qmi_client.h"
+ #endif
++#ifdef WCNSS_QMI_OSS
++#include <dlfcn.h>
++#endif
+ 
+ #define SUCCESS 0
+ #define FAILED -1
+@@ -69,7 +72,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 		"/sys/module/wcnsscore/parameters/has_calibrated_data"
+ #define WLAN_DRIVER_ATH_DEFAULT_VAL "0"
+ 
+-#ifdef WCNSS_QMI
++#if defined (WCNSS_QMI) || defined(WCNSS_QMI_OSS)
+ #define WLAN_ADDR_SIZE   6
+ unsigned char wlan_nv_mac_addr[WLAN_ADDR_SIZE];
+ #define MAC_ADDR_ARRAY(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+@@ -363,7 +366,7 @@ void setup_wcnss_parameters(int *cal, int nv_mac_addr)
+ 		}
+ 	}
+ 
+-#ifdef WCNSS_QMI
++#if defined(WCNSS_QMI) || defined (WCNSS_QMI_OSS)
+ 	if (SUCCESS == nv_mac_addr)
+ 	{
+ 		pos = 0;
+@@ -435,6 +438,59 @@ void setup_wlan_driver_ath_prop()
+ 	property_set("wlan.driver.ath", WLAN_DRIVER_ATH_DEFAULT_VAL);
+ }
+ 
++#ifdef WCNSS_QMI_OSS
++static void *wcnss_qmi_handle = NULL;
++static int (*wcnss_init_qmi)(void) = NULL;
++static int (*wcnss_qmi_get_wlan_address)(unsigned char *) = NULL;
++static void (*wcnss_qmi_deinit)(void) = NULL;
++
++static int setup_wcnss_qmi(void)
++{
++	const char *error = NULL;
++
++	/* initialize the DMS client and request the wlan mac address */
++	wcnss_qmi_handle = dlopen("libwcnss_qmi.so", RTLD_NOW);
++	if (!wcnss_qmi_handle) {
++		ALOGE("Failed to open libwcnss_qmi.so: %s", dlerror());
++		goto dlopen_err;
++	}
++
++	dlerror();
++
++	wcnss_init_qmi = dlsym(wcnss_qmi_handle, "wcnss_init_qmi");
++	if ((error = dlerror()) != NULL) {
++		ALOGE("Failed to resolve function: %s: %s",
++				"wcnss_init_qmi", error);
++		goto dlsym_err;
++	}
++
++	dlerror();
++
++	wcnss_qmi_get_wlan_address = dlsym(wcnss_qmi_handle,
++			"wcnss_qmi_get_wlan_address");
++	if ((error = dlerror()) != NULL) {
++		ALOGE("Failed to resolve function: %s: %s",
++				"wcnss_qmi_get_wlan_address", error);
++		goto dlsym_err;
++	}
++
++	dlerror();
++
++	wcnss_qmi_deinit = dlsym(wcnss_qmi_handle, "wcnss_qmi_deinit");
++	if ((error = dlerror()) != NULL) {
++		ALOGE("Failed to resolve function: %s: %s",
++				"wcnss_qmi_deinit", error);
++		goto dlsym_err;
++	}
++
++	return SUCCESS;
++
++dlsym_err:
++	dlclose(wcnss_qmi_handle);
++dlopen_err:
++	return FAILED;
++}
++#endif
+ 
+ int main(int argc, char *argv[])
+ {
+@@ -444,6 +500,28 @@ int main(int argc, char *argv[])
+ 
+ 	setup_wlan_config_file();
+ 
++#ifdef WCNSS_QMI_OSS
++	/* dlopen WCNSS QMI lib */
++
++	rc = setup_wcnss_qmi();
++	if (rc == SUCCESS) {
++		if (SUCCESS == (*wcnss_init_qmi)()) {
++			rc = (*wcnss_qmi_get_wlan_address)(wlan_nv_mac_addr);
++			if (rc == SUCCESS) {
++				nv_mac_addr = SUCCESS;
++				ALOGE("WLAN MAC Addr:" MAC_ADDRESS_STR,
++						MAC_ADDR_ARRAY(wlan_nv_mac_addr));
++			} else
++				ALOGE("Failed to Get MAC addr from modem");
++
++			(*wcnss_qmi_deinit)();
++		}
++		else
++			ALOGE("Failed to Initialize wcnss QMI Interface");
++	} else {
++		ALOGE("Failed to Initialize wcnss QMI interface library");
++	}
++#endif
+ #ifdef WCNSS_QMI
+ 	/* initialize the DMS client and request the wlan mac address */
+ 
+@@ -491,5 +569,9 @@ int main(int argc, char *argv[])
+ 
+ 	close(fd_dev);
+ 
++#ifdef WCNSS_QMI_OSS
++	dlclose(wcnss_qmi_handle);
++#endif
++
+ 	return rc;
+ }
+-- 
+1.7.9.5
+
