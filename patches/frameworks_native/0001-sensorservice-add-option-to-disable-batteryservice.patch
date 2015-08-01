@@ -10,8 +10,8 @@ start it, BatteryService doesn't know how to behave - disable it.
 
 Change-Id: I870a86082e96301a6e9df4e7201f52f690c4ad02
 ---
- services/sensorservice/Android.mk        |   10 +++++++++-
- services/sensorservice/SensorService.cpp |    8 ++++++++
+ services/sensorservice/Android.mk        | 10 +++++++++-
+ services/sensorservice/SensorService.cpp |  8 ++++++++
  2 files changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/services/sensorservice/Android.mk b/services/sensorservice/Android.mk
@@ -94,5 +94,5 @@ index a2f4332..2aa0237 100644
              mActiveConnections.remove(connection);
          }
 -- 
-1.7.9.5
+2.5.0
 

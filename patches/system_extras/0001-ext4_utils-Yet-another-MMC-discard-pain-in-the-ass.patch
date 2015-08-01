@@ -8,7 +8,7 @@ Subject: [PATCH] ext4_utils: Yet another MMC discard pain in the ass
 
 Change-Id: Ib8ccb12829385aa267253f772e243bef8850f455
 ---
- ext4_utils/wipe.c |    5 ++++-
+ ext4_utils/wipe.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/ext4_utils/wipe.c b/ext4_utils/wipe.c
@@ -40,5 +40,5 @@ index 3bd33e5..c3d213f 100644
  }
  #else
 -- 
-1.7.9.5
+2.5.0
 

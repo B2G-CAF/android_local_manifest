@@ -5,7 +5,7 @@ Subject: [PATCH 4/4] wcnss_qmi: Allow targets to provide custom libwcnss_qmi
 
 Change-Id: I9aedd4b8633a81ecb3cd292299826e3daca60656
 ---
- wcnss-service/Android.mk |   11 +++++++++++
+ wcnss-service/Android.mk | 11 +++++++++++
  1 file changed, 11 insertions(+)
 
 diff --git a/wcnss-service/Android.mk b/wcnss-service/Android.mk
@@ -51,5 +51,5 @@ index 3db116e..db8d4f1 100644
  
  endif #TARGET_ARCH == arm
 -- 
-1.7.9.5
+2.5.0
 

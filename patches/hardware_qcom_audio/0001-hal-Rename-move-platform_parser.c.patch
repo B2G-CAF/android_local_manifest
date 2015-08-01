@@ -1,0 +1,599 @@
+From 5ee02cc3e7ed5e41b05f643c1e7e64779e3fdb9a Mon Sep 17 00:00:00 2001
+From: Ben Romberger <bromberg@codeaurora.org>
+Date: Fri, 10 Jan 2014 13:49:02 -0800
+Subject: [PATCH 1/3] hal: Rename & move platform_parser.c
+
+Move platform_parser to root hal directory. Rename
+platform_parser to platform_info. Change name of
+XML file read from platform_info.xml to
+audio_platform_info.xml. The xml now only needs
+information for ACDB ID's that you want overwritten.
+Names in the XML now match sound device enums in
+platform.c.
+
+Change-Id: I6f9bfcf4149f08d88cb2a95ba021bdf7296aaf4d
+---
+ hal/Android.mk                |  11 ++-
+ hal/msm8960/platform.c        |   5 ++
+ hal/msm8974/platform.c        | 103 ++++++++++++++++++++++++++-
+ hal/msm8974/platform_parser.c | 161 ------------------------------------------
+ hal/msm8974/platform_parser.h |  35 ---------
+ hal/platform_api.h            |   4 ++
+ hal/platform_info.c           | 152 +++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 267 insertions(+), 204 deletions(-)
+ delete mode 100644 hal/msm8974/platform_parser.c
+ delete mode 100644 hal/msm8974/platform_parser.h
+ create mode 100644 hal/platform_info.c
+
+diff --git a/hal/Android.mk b/hal/Android.mk
+index d4862f2..261cc18 100644
+--- a/hal/Android.mk
++++ b/hal/Android.mk
+@@ -26,6 +26,7 @@ endif
+ LOCAL_SRC_FILES := \
+ 	audio_hw.c \
+ 	voice.c \
++	platform_info.c \
+ 	$(AUDIO_PLATFORM)/platform.c
+ 
+ LOCAL_SRC_FILES += audio_extn/audio_extn.c
+@@ -118,23 +119,19 @@ LOCAL_SHARED_LIBRARIES := \
+ 	libtinyalsa \
+ 	libtinycompress \
+ 	libaudioroute \
+-	libdl
++	libdl \
++	libexpat
+ 
+ LOCAL_C_INCLUDES += \
+ 	external/tinyalsa/include \
+ 	external/tinycompress/include \
++	external/expat/lib \
+ 	$(call include-path-for, audio-route) \
+ 	$(call include-path-for, audio-effects) \
+ 	$(LOCAL_PATH)/$(AUDIO_PLATFORM) \
+ 	$(LOCAL_PATH)/audio_extn \
+ 	$(LOCAL_PATH)/voice_extn
+ 
+-ifneq ($(filter msm8974,$(AUDIO_PLATFORM)),)
+-    LOCAL_C_INCLUDES += external/expat/lib
+-    LOCAL_SHARED_LIBRARIES += libexpat
+-    LOCAL_SRC_FILES += $(AUDIO_PLATFORM)/platform_parser.c
+-endif
+-
+ ifeq ($(strip $(AUDIO_FEATURE_ENABLED_LISTEN)),true)
+     LOCAL_CFLAGS += -DAUDIO_LISTEN_ENABLED
+     LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/audio-listen
+diff --git a/hal/msm8960/platform.c b/hal/msm8960/platform.c
+index 4003443..47f92ac 100644
+--- a/hal/msm8960/platform.c
++++ b/hal/msm8960/platform.c
+@@ -385,6 +385,11 @@ int platform_get_pcm_device_id(audio_usecase_t usecase, int device_type)
+     return device_id;
+ }
+ 
++int platform_get_snd_device_index(char *snd_device_index_name)
++{
++    return -ENODEV;
++}
++
+ int platform_set_snd_device_acdb_id(snd_device_t snd_device, unsigned int acdb_id)
+ {
+     return -ENODEV;
+diff --git a/hal/msm8974/platform.c b/hal/msm8974/platform.c
+index 5a38e08..9c2dda8 100644
+--- a/hal/msm8974/platform.c
++++ b/hal/msm8974/platform.c
+@@ -32,7 +32,6 @@
+ #include "audio_extn.h"
+ #include "voice_extn.h"
+ #include "sound/compress_params.h"
+-#include "platform_parser.h"
+ 
+ #define MIXER_XML_PATH "/system/etc/mixer_paths.xml"
+ #define MIXER_XML_PATH_AUXPCM "/system/etc/mixer_paths_auxpcm.xml"
+@@ -315,6 +314,84 @@ static int acdb_device_table[SND_DEVICE_MAX] = {
+     [SND_DEVICE_IN_CAPTURE_VI_FEEDBACK] = 102,
+ };
+ 
++struct snd_device_index {
++    char name[100];
++    unsigned int index;
++};
++
++#define TO_NAME_INDEX(X)   #X, X
++
++/* Used to get index from parsed sting */
++struct snd_device_index snd_device_name_index[SND_DEVICE_MAX] = {
++    {TO_NAME_INDEX(SND_DEVICE_OUT_HANDSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_SPEAKER)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_SPEAKER_REVERSE)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_HEADPHONES)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_SPEAKER_AND_HEADPHONES)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_VOICE_HANDSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_VOICE_SPEAKER)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_VOICE_HEADPHONES)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_HDMI)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_SPEAKER_AND_HDMI)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_BT_SCO)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_BT_SCO_WB)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_VOICE_TTY_FULL_HEADPHONES)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_VOICE_TTY_VCO_HEADPHONES)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_VOICE_TTY_HCO_HANDSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_AFE_PROXY)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_USB_HEADSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_SPEAKER_AND_USB_HEADSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_TRANSMISSION_FM)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_ANC_HEADSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_ANC_FB_HEADSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_VOICE_ANC_HEADSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_VOICE_ANC_FB_HEADSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_SPEAKER_AND_ANC_HEADSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_ANC_HANDSET)},
++    {TO_NAME_INDEX(SND_DEVICE_OUT_SPEAKER_PROTECTED)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_MIC_AEC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_MIC_NS)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_MIC_AEC_NS)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_DMIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_DMIC_AEC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_DMIC_NS)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_DMIC_AEC_NS)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_SPEAKER_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_SPEAKER_MIC_AEC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_SPEAKER_MIC_NS)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_SPEAKER_MIC_AEC_NS)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_SPEAKER_DMIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_SPEAKER_DMIC_AEC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_SPEAKER_DMIC_NS)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_SPEAKER_DMIC_AEC_NS)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HEADSET_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HEADSET_MIC_FLUENCE)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_SPEAKER_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_HEADSET_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HDMI_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_BT_SCO_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_BT_SCO_MIC_WB)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_CAMCORDER_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_DMIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_SPEAKER_DMIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_SPEAKER_QMIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_TTY_FULL_HEADSET_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_TTY_VCO_HANDSET_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_TTY_HCO_HEADSET_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_REC_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_REC_MIC_NS)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_REC_DMIC_STEREO)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_VOICE_REC_DMIC_FLUENCE)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_USB_HEADSET_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_CAPTURE_FM)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_AANC_HANDSET_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_QUAD_MIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_HANDSET_STEREO_DMIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_SPEAKER_STEREO_DMIC)},
++    {TO_NAME_INDEX(SND_DEVICE_IN_CAPTURE_VI_FEEDBACK)},
++};
++
+ #define DEEP_BUFFER_PLATFORM_DELAY (29*1000LL)
+ #define LOW_LATENCY_PLATFORM_DELAY (13*1000LL)
+ 
+@@ -728,6 +805,30 @@ done:
+     return ret;
+ }
+ 
++int platform_get_snd_device_index(char *snd_device_index_name)
++{
++    int ret = 0;
++    int i;
++
++    if (snd_device_index_name == NULL) {
++        ALOGE("%s: snd_device_index_name is NULL", __func__);
++        ret = -ENODEV;
++        goto done;
++    }
++
++    for (i=0; i < SND_DEVICE_MAX; i++) {
++        if(strcmp(snd_device_name_index[i].name, snd_device_index_name) == 0) {
++            ret = snd_device_name_index[i].index;
++            goto done;
++        }
++    }
++    ALOGE("%s: Could not find index for snd_device_index_name = %s",
++            __func__, snd_device_index_name);
++    ret = -ENODEV;
++done:
++    return ret;
++}
++
+ int platform_set_snd_device_acdb_id(snd_device_t snd_device, unsigned int acdb_id)
+ {
+     int ret = 0;
+diff --git a/hal/msm8974/platform_parser.c b/hal/msm8974/platform_parser.c
+deleted file mode 100644
+index 8f86d97..0000000
+--- a/hal/msm8974/platform_parser.c
++++ /dev/null
+@@ -1,161 +0,0 @@
+-/*
+- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions are
+- * met:
+- *     * Redistributions of source code must retain the above copyright
+- *       notice, this list of conditions and the following disclaimer.
+- *     * Redistributions in binary form must reproduce the above
+- *       copyright notice, this list of conditions and the following
+- *       disclaimer in the documentation and/or other materials provided
+- *       with the distribution.
+- *     * Neither the name of The Linux Foundation nor the names of its
+- *       contributors may be used to endorse or promote products derived
+- *       from this software without specific prior written permission.
+- *
+- * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+- * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+- */
+-
+-#define LOG_TAG "platform_parser"
+-#define LOG_NDDEBUG 0
+-
+-#include <errno.h>
+-#include <stdio.h>
+-#include <expat.h>
+-#include <cutils/log.h>
+-#include <audio_hw.h>
+-#include <platform_api.h>
+-#include "platform.h"
+-#include "platform_parser.h"
+-
+-#define PLATFORM_XML_PATH        "/system/etc/platform_info.xml"
+-#define BUF_SIZE                    1024
+-
+-static void process_device(void *userdata, const XML_Char **attr)
+-{
+-    unsigned int    *snd_device_index = userdata;
+-
+-    if (strcmp(attr[0], "name") != 0)
+-        goto done;
+-
+-    if (platform_get_snd_device_name(*snd_device_index) == NULL)
+-        goto next;
+-    if (strcmp(attr[1], platform_get_snd_device_name(*snd_device_index)) != 0) {
+-        ALOGE("%s: %s in platform.h at index %d does not match %s, from %s no ACDB ID set!",
+-            __func__, platform_get_snd_device_name(*snd_device_index),
+-            *snd_device_index, attr[1], PLATFORM_XML_PATH);
+-        goto done;
+-    }
+-
+-    if (strcmp(attr[2], "acdb_id") != 0) {
+-        ALOGE("%s: Device %s at index %d in %s has no acdb_id, no ACDB ID set!",
+-              __func__, attr[1], *snd_device_index, PLATFORM_XML_PATH);
+-        goto done;
+-    }
+-
+-    if(platform_set_snd_device_acdb_id(*snd_device_index,
+-                                atoi((char *)attr[3])) != 0)
+-        goto done;
+-
+-next:
+-     (*snd_device_index)++;
+-done:
+-    return;
+-}
+-
+-static void start_tag(void *userdata, const XML_Char *tag_name,
+-                      const XML_Char **attr)
+-{
+-    const XML_Char              *attr_name = NULL;
+-    const XML_Char              *attr_value = NULL;
+-    unsigned int                i;
+-
+-    if (strcmp(tag_name, "device") == 0)
+-        process_device(userdata, attr);
+-
+-    return;
+-}
+-
+-static void end_tag(void *userdata, const XML_Char *tag_name)
+-{
+-
+-}
+-
+-int platform_info_init(void)
+-{
+-    XML_Parser      parser;
+-    FILE            *file;
+-    int             ret = 0;
+-    int             bytes_read;
+-    unsigned int    snd_device_index = SND_DEVICE_MIN;
+-    void            *buf;
+-
+-    file = fopen(PLATFORM_XML_PATH, "r");
+-    if (!file) {
+-        ALOGD("%s: Failed to open %s, using defaults.",
+-            __func__, PLATFORM_XML_PATH);
+-        ret = -ENODEV;
+-        goto done;
+-    }
+-
+-    parser = XML_ParserCreate(NULL);
+-    if (!parser) {
+-        ALOGE("%s: Failed to create XML parser!", __func__);
+-        ret = -ENODEV;
+-        goto err_close_file;
+-    }
+-
+-    XML_SetUserData(parser, &snd_device_index);
+-    XML_SetElementHandler(parser, start_tag, end_tag);
+-
+-    while (1) {
+-        buf = XML_GetBuffer(parser, BUF_SIZE);
+-        if (buf == NULL) {
+-            ALOGE("%s: XML_GetBuffer failed", __func__);
+-            ret = -ENOMEM;
+-            goto err_free_parser;
+-        }
+-
+-        bytes_read = fread(buf, 1, BUF_SIZE, file);
+-        if (bytes_read < 0) {
+-            ALOGE("%s: fread failed, bytes read = %d", __func__, bytes_read);
+-             ret = bytes_read;
+-            goto err_free_parser;
+-        }
+-
+-        if (XML_ParseBuffer(parser, bytes_read,
+-                            bytes_read == 0) == XML_STATUS_ERROR) {
+-            ALOGE("%s: XML_ParseBuffer failed, for %s",
+-                __func__, PLATFORM_XML_PATH);
+-            ret = -EINVAL;
+-            goto err_free_parser;
+-        }
+-
+-        if (bytes_read == 0)
+-            break;
+-    }
+-
+-    if (snd_device_index != SND_DEVICE_MAX) {
+-        ALOGE("%s: Only %d/%d ACDB ID's set! Fix %s!",
+-            __func__, snd_device_index, SND_DEVICE_MAX, PLATFORM_XML_PATH);
+-        ret = -EINVAL;
+-    }
+-
+-err_free_parser:
+-    XML_ParserFree(parser);
+-err_close_file:
+-    fclose(file);
+-done:
+-    return ret;
+-}
+diff --git a/hal/msm8974/platform_parser.h b/hal/msm8974/platform_parser.h
+deleted file mode 100644
+index 3e91934..0000000
+--- a/hal/msm8974/platform_parser.h
++++ /dev/null
+@@ -1,35 +0,0 @@
+-/*
+- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions are
+- * met:
+- *     * Redistributions of source code must retain the above copyright
+- *       notice, this list of conditions and the following disclaimer.
+- *     * Redistributions in binary form must reproduce the above
+- *       copyright notice, this list of conditions and the following
+- *       disclaimer in the documentation and/or other materials provided
+- *       with the distribution.
+- *     * Neither the name of The Linux Foundation nor the names of its
+- *       contributors may be used to endorse or promote products derived
+- *       from this software without specific prior written permission.
+- *
+- * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+- * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+- */
+-
+-#ifndef AUDIO_PLATFORM_PARSER_H
+-#define AUDIO_PLATFORM_PARSER_H
+-
+-int platform_info_init(void);
+-
+-#endif // AUDIO_PLATFORM_PARSER_H
+diff --git a/hal/platform_api.h b/hal/platform_api.h
+index 232d1c5..fd124ed 100644
+--- a/hal/platform_api.h
++++ b/hal/platform_api.h
+@@ -29,6 +29,7 @@ void platform_add_backend_name(char *mixer_path, snd_device_t snd_device);
+ int platform_get_pcm_device_id(audio_usecase_t usecase, int device_type);
+ int platform_set_fluence_type(void *platform, char *value);
+ int platform_get_fluence_type(void *platform, char *value, uint32_t len);
++int platform_get_snd_device_index(char *snd_device_index_name);
+ int platform_set_snd_device_acdb_id(snd_device_t snd_device, unsigned int acdb_id);
+ int platform_send_audio_calibration(void *platform, snd_device_t snd_device);
+ int platform_switch_voice_call_device_pre(void *platform);
+@@ -64,4 +65,7 @@ struct audio_offload_info_t;
+ uint32_t platform_get_compress_offload_buffer_size(audio_offload_info_t* info);
+ uint32_t platform_get_pcm_offload_buffer_size(audio_offload_info_t* info);
+ 
++/* From platform_info_parser.c */
++int platform_info_init(void);
++
+ #endif // AUDIO_PLATFORM_API_H
+diff --git a/hal/platform_info.c b/hal/platform_info.c
+new file mode 100644
+index 0000000..8f56107
+--- /dev/null
++++ b/hal/platform_info.c
+@@ -0,0 +1,152 @@
++/*
++ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are
++ * met:
++ *     * Redistributions of source code must retain the above copyright
++ *       notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above
++ *       copyright notice, this list of conditions and the following
++ *       disclaimer in the documentation and/or other materials provided
++ *       with the distribution.
++ *     * Neither the name of The Linux Foundation nor the names of its
++ *       contributors may be used to endorse or promote products derived
++ *       from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
++ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
++ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
++ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#define LOG_TAG "platform_info"
++#define LOG_NDDEBUG 0
++
++#include <errno.h>
++#include <stdio.h>
++#include <expat.h>
++#include <cutils/log.h>
++#include <audio_hw.h>
++#include "platform_api.h"
++#include <platform.h>
++
++#define PLATFORM_INFO_XML_PATH      "/system/etc/audio_platform_info.xml"
++#define BUF_SIZE                    1024
++
++static void process_device(const XML_Char **attr)
++{
++    int index;
++
++    if (strcmp(attr[0], "name") != 0) {
++        ALOGE("%s: 'name' not found, no ACDB ID set!", __func__);
++        goto done;
++    }
++
++    index = platform_get_snd_device_index((char *)attr[1]);
++    if (index < 0) {
++        ALOGE("%s: Device %s in %s not found, no ACDB ID set!",
++              __func__, attr[1], PLATFORM_INFO_XML_PATH);
++        goto done;
++    }
++
++    if (strcmp(attr[2], "acdb_id") != 0) {
++        ALOGE("%s: Device %s in %s has no acdb_id, no ACDB ID set!",
++              __func__, attr[1], PLATFORM_INFO_XML_PATH);
++        goto done;
++    }
++
++    if(platform_set_snd_device_acdb_id(index, atoi((char *)attr[3])) < 0) {
++        ALOGE("%s: Device %s in %s, ACDB ID %d was not set!",
++              __func__, attr[1], PLATFORM_INFO_XML_PATH, atoi((char *)attr[3]));
++        goto done;
++    }
++
++done:
++    return;
++}
++
++static void start_tag(void *userdata, const XML_Char *tag_name,
++                      const XML_Char **attr)
++{
++    const XML_Char              *attr_name = NULL;
++    const XML_Char              *attr_value = NULL;
++    unsigned int                i;
++
++    if (strcmp(tag_name, "device") == 0)
++        process_device(attr);
++
++    return;
++}
++
++static void end_tag(void *userdata, const XML_Char *tag_name)
++{
++
++}
++
++int platform_info_init(void)
++{
++    XML_Parser      parser;
++    FILE            *file;
++    int             ret = 0;
++    int             bytes_read;
++    void            *buf;
++
++    file = fopen(PLATFORM_INFO_XML_PATH, "r");
++    if (!file) {
++        ALOGD("%s: Failed to open %s, using defaults.",
++            __func__, PLATFORM_INFO_XML_PATH);
++        ret = -ENODEV;
++        goto done;
++    }
++
++    parser = XML_ParserCreate(NULL);
++    if (!parser) {
++        ALOGE("%s: Failed to create XML parser!", __func__);
++        ret = -ENODEV;
++        goto err_close_file;
++    }
++
++    XML_SetElementHandler(parser, start_tag, end_tag);
++
++    while (1) {
++        buf = XML_GetBuffer(parser, BUF_SIZE);
++        if (buf == NULL) {
++            ALOGE("%s: XML_GetBuffer failed", __func__);
++            ret = -ENOMEM;
++            goto err_free_parser;
++        }
++
++        bytes_read = fread(buf, 1, BUF_SIZE, file);
++        if (bytes_read < 0) {
++            ALOGE("%s: fread failed, bytes read = %d", __func__, bytes_read);
++             ret = bytes_read;
++            goto err_free_parser;
++        }
++
++        if (XML_ParseBuffer(parser, bytes_read,
++                            bytes_read == 0) == XML_STATUS_ERROR) {
++            ALOGE("%s: XML_ParseBuffer failed, for %s",
++                __func__, PLATFORM_INFO_XML_PATH);
++            ret = -EINVAL;
++            goto err_free_parser;
++        }
++
++        if (bytes_read == 0)
++            break;
++    }
++
++err_free_parser:
++    XML_ParserFree(parser);
++err_close_file:
++    fclose(file);
++done:
++    return ret;
++}
+-- 
+2.5.0
+

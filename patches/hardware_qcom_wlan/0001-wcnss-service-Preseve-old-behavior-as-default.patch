@@ -8,8 +8,8 @@ the new /dev/wcnss_ctrl and ini in system/etc/wifi
 
 Change-Id: I9912ab03e71c8e0ed4dfd4296e5f12b465ae29d5
 ---
- wcnss-service/Android.mk          |    4 +
- wcnss-service/wcnss_service_old.c |  218 +++++++++++++++++++++++++++++++++++++
+ wcnss-service/Android.mk          |   4 +
+ wcnss-service/wcnss_service_old.c | 218 ++++++++++++++++++++++++++++++++++++++
  2 files changed, 222 insertions(+)
  create mode 100644 wcnss-service/wcnss_service_old.c
 
@@ -254,5 +254,5 @@ index 0000000..797fea4
 +	return rc;
 +}
 -- 
-1.7.9.5
+2.5.0
 

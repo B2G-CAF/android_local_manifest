@@ -1,12 +1,12 @@
-From 4084600684a6381aec5d6bc9d05a0e408b495d71 Mon Sep 17 00:00:00 2001
+From 5e878de48f8e44453fbaffd156f4759fe496da29 Mon Sep 17 00:00:00 2001
 From: Steve Kondik <shade@chemlab.org>
 Date: Sun, 4 May 2014 00:39:25 -0700
 Subject: [PATCH] libbt-qcom: Allow building without proprietary bits
 
 Change-Id: I1a123e84064e441e7b4d3bf3437fa655f38f38c2
 ---
- libbt-vendor/Android.mk           |    6 ++++--
- libbt-vendor/src/bt_vendor_qcom.c |    2 ++
+ libbt-vendor/Android.mk           | 6 ++++--
+ libbt-vendor/src/bt_vendor_qcom.c | 2 ++
  2 files changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/libbt-vendor/Android.mk b/libbt-vendor/Android.mk
@@ -54,5 +54,5 @@ index 2f996ee..d5df692 100644
                                          retval = -1;
                                      } else {
 -- 
-1.7.9.5
+2.5.0
 

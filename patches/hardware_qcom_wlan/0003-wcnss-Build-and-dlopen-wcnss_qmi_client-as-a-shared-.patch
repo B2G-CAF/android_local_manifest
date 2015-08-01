@@ -9,8 +9,8 @@ Subject: [PATCH 3/4] wcnss: Build and dlopen wcnss_qmi_client as a shared
 
 Change-Id: I30a1f9a8760dcd19761d473cedb2104b7b33069c
 ---
- wcnss-service/Android.mk      |   30 ++++++++++++--
- wcnss-service/wcnss_service.c |   86 ++++++++++++++++++++++++++++++++++++++++-
+ wcnss-service/Android.mk      | 30 +++++++++++++--
+ wcnss-service/wcnss_service.c | 86 ++++++++++++++++++++++++++++++++++++++++++-
  2 files changed, 110 insertions(+), 6 deletions(-)
 
 diff --git a/wcnss-service/Android.mk b/wcnss-service/Android.mk
@@ -195,5 +195,5 @@ index 214b8a5..f6af677 100644
  	return rc;
  }
 -- 
-1.7.9.5
+2.5.0
 

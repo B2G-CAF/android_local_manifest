@@ -1,4 +1,4 @@
-From e39d534bcf91455d49685a58807c6b00271b7899 Mon Sep 17 00:00:00 2001
+From 03e82bc944eb0196ea54526b41cb8d63744fc722 Mon Sep 17 00:00:00 2001
 From: Steve Kondik <shade@chemlab.org>
 Date: Sun, 11 May 2014 04:01:05 -0700
 Subject: [PATCH] qsap: Put files in a sane location
@@ -7,8 +7,8 @@ Subject: [PATCH] qsap: Put files in a sane location
 
 Change-Id: Ifc61a3504433f6b7e1602432ecea70c37785c895
 ---
- softap/sdk/qsap_api.c |    5 +++++
- softap/sdk/qsap_api.h |    6 +++---
+ softap/sdk/qsap_api.c | 5 +++++
+ softap/sdk/qsap_api.h | 6 +++---
  2 files changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/softap/sdk/qsap_api.c b/softap/sdk/qsap_api.c
@@ -55,5 +55,5 @@ index f3ea042..f0d2ee8 100644
  /** Maximum length of the line in the configuration file */
  #define MAX_CONF_LINE_LEN  (156)
 -- 
-1.7.9.5
+2.5.0
 

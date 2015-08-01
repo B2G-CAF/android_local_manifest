@@ -5,7 +5,7 @@ Subject: [PATCH 2/4] wcnss-service: Additional guard on QMI support
 
 Change-Id: I68ce99a2e9ffd3949c994176a8fb0987f92f3baa
 ---
- wcnss-service/Android.mk |   17 +++++++++++++----
+ wcnss-service/Android.mk | 17 +++++++++++++----
  1 file changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/wcnss-service/Android.mk b/wcnss-service/Android.mk
@@ -54,5 +54,5 @@ index 18645fc..1042ac2 100644
 +
  endif
 -- 
-1.7.9.5
+2.5.0
 
