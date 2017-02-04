@@ -1,4 +1,4 @@
-Local manifests to build CAF Firefox OS for [ZTE Open C / Kis 3](http://www.modaco.com/topic/373261-firefox-os/) and [Motorola Moto G](http://www.modaco.com/topic/372487-firefox-os/).
+Local manifests to build CAF Firefox OS for [ZTE Open C / Kis 3](http://konstakang.com/devices/kis3/FirefoxOS) and [Motorola Moto G](http://konstakang.com/devices/falcon/FirefoxOS).
 
 How to build:
 -------------
